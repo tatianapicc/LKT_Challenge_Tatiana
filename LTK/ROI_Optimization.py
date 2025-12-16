@@ -305,7 +305,7 @@ print(classification_report(y_te, y_pred))
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Results Analisys
+# MAGIC ## Results Analysis
 
 # COMMAND ----------
 
@@ -471,7 +471,7 @@ print(classification_report(y_te, y_pred))
 # MAGIC The problem is **not** the decision framework.  
 # MAGIC The problem is the **predictive quality of the base model**.
 # MAGIC
-# MAGIC And that is **exactly what a strong data scientist should say**.
+# MAGIC
 # MAGIC
 # MAGIC ---
 # MAGIC
@@ -557,7 +557,7 @@ print("VAL PR-AUC :", average_precision_score(y_val, p_val_lgb))
 from sklearn.calibration import CalibratedClassifierCV
 
 cal_lgb = CalibratedClassifierCV(
-    estimator=lgb_model,
+    base_estimator=lgb_model,
     method="isotonic",
     cv=3
 )
@@ -580,6 +580,55 @@ chosen_t = best_val_lgb["threshold"]
 
 test_lgb = evaluate_policy(y_te, p_te_cal, chosen_t)
 print("LGBM TEST:", test_lgb)
+
+
+# COMMAND ----------
+
+from sklearn.metrics import precision_score, recall_score
+
+def per_category_report(df, p_hat, threshold):
+    out = df.copy()
+    out["p_hat"] = p_hat
+    out["pred"] = (out["p_hat"] > threshold).astype(int)
+
+    rows = []
+    for cat, g in out.groupby("product_category"):
+        y = g["is_return"].astype(int).values
+        pred = g["pred"].values
+        rows.append({
+            "category": cat,
+            "n": len(g),
+            "return_rate": float(y.mean()),
+            "precision_return": precision_score(y, pred, zero_division=0),
+            "recall_return": recall_score(y, pred, zero_division=0),
+        })
+    return pd.DataFrame(rows).sort_values("return_rate", ascending=False)
+
+display(per_category_report(test, p_te_cal, chosen_t))
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Category-Level Performance Summary
+# MAGIC
+# MAGIC | Category       | Orders (n) | Return Rate | Precision (Return) | Recall (Return) |
+# MAGIC |---------------|------------|-------------|--------------------|-----------------|
+# MAGIC | Fashion       | 1,104      | 31.34%      | 0.50               | 0.0029          |
+# MAGIC | Home Decor    | 289        | 19.03%      | 0.00               | 0.00            |
+# MAGIC | Electronics   | 607        | 17.13%      | 0.00               | 0.00            |
+# MAGIC
+# MAGIC ---
+# MAGIC
+# MAGIC ### Interpretation
+# MAGIC
+# MAGIC - **Fashion** shows the highest return rate and is the **only category where the model identifies any returns**, albeit with **extremely low recall**.
+# MAGIC - **Home Decor** and **Electronics** have lower return rates and **no detected returns at all**, indicating no usable signal under the current threshold.
+# MAGIC - This reinforces the conclusion that the model is **high-precision / ultra-low-recall**, and that **category-specific policies** (e.g., different thresholds for Fashion vs. Electronics) are likely necessary to unlock more value.
+# MAGIC
+
+# COMMAND ----------
+
 
 
 # COMMAND ----------
