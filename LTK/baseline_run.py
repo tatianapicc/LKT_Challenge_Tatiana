@@ -80,10 +80,16 @@ print("=" * 50)
 
 # COMMAND ----------
 
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, roc_auc_score, average_precision_score
 
+p_base = baseline_model.predict_proba(X_test_scaled)[:, 1]
 
-# COMMAND ----------
+print("Baseline ROC-AUC:", roc_auc_score(y_test, p_base))
+print("Baseline PR-AUC :", average_precision_score(y_test, p_base))
 
+cm = confusion_matrix(y_test, y_pred)
+ConfusionMatrixDisplay(cm).plot()
+print("Confusion matrix:\n", cm)
 
 
 # COMMAND ----------
